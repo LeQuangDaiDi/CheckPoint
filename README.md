@@ -1,70 +1,51 @@
-# CheckPoint
+# CheckPoint — Pixel Defense Command
 
-Game phòng thủ 2D viết bằng Python và Pygame. Radar tự động phát hiện, dự đoán điểm đánh chặn, phân bổ vũ khí và so sánh hiệu quả chi phí giữa bên tấn công và phòng thủ.
+Game phòng thủ 2D bằng Python và Pygame. Radar theo dõi mục tiêu, ưu tiên các đầu đạn gần căn cứ nhất, khóa độc quyền từng mục tiêu cho một bệ và so sánh chi phí giữa hai bên.
 
-## Phân loại đạn trên màn hình
+## Nâng cấp hiện tại
 
-- **ATTACK MISSILES / WARHEADS**: tên lửa và đầu đạn tấn công, hiển thị bằng tam giác màu cam/đỏ.
-- **DEFENSE INTERCEPTORS**: đạn đánh chặn phòng thủ, hiển thị bằng hình tròn màu xanh và đường dẫn hướng.
-- HUD tách riêng số đã phóng, số đang bay và chi phí của hai bên.
-- Nhấn `D` để mở bảng chi tiết riêng cho tấn công và phòng thủ.
+### Giao diện và bản đồ
 
-## Tên các loại đạn
+- Bản đồ tăng từ `1280 × 720` lên `1600 × 900`.
+- Toàn bộ bản đồ, căn cứ, bệ phóng, tên lửa và vụ nổ chuyển sang phong cách pixel.
+- Căn cứ cũ được thay bằng trạm chỉ huy radar pixel-art.
+- Bảng bên phải được chia rõ thành:
+  - `ATTACK ARSENAL / ĐẠN TẤN CÔNG`
+  - `DEFENSE BATTERIES / ĐẠN PHÒNG THỦ`
+  - `BATTLE ECONOMY`
 
-### Tấn công
+### Ưu tiên phòng thủ
 
-| Tên | Vai trò | Giá mô phỏng |
-|---|---|---:|
-| `Striker-A1` | Tên lửa tấn công tiêu chuẩn | $1.20M |
-| `Hydra-M4` | Tên lửa mẹ mang nhiều đầu đạn | $4.80M |
-| `Phantom-EW` | Tên lửa gây nhiễu radar | $3.60M |
-| `Hydra-Shadow` | Tên lửa mẹ vừa tách đầu đạn vừa gây nhiễu | $6.50M |
-| `Viper-C` | Đầu đạn con cơ động | $0.42M |
+- Radar sắp xếp mục tiêu theo thời gian còn lại trước khi chạm đất.
+- Nếu thời gian bằng nhau, mục tiêu gần trạm radar hơn được xử lý trước.
+- Mỗi mục tiêu chỉ có một bệ chủ quản và tối đa một đạn phòng thủ đang bay.
+- Bệ khác chỉ tiếp quản khi bệ chủ quản hết đạn, mất nghiệm đánh chặn hoặc không kịp nạp lại.
 
-### Phòng thủ
+### Tên lửa và quỹ đạo mới
 
-| Tên | Vai trò | Giá mỗi phát |
-|---|---|---:|
-| `Aegis-LR` | Đánh chặn chính xác cao, ưu tiên đầu đạn mẹ | $2.10M |
-| `Skyburst-F` | Nổ vùng, xử lý cụm mục tiêu | $0.78M |
-| `Falcon-CIWS` | Đánh chặn nhanh đa mục tiêu | $0.24M |
-| `Viper-CIWS` | Đánh chặn nhanh dự phòng | $0.29M |
+Các loại tấn công:
 
-Các mức giá chỉ phục vụ cân bằng và phân tích kinh tế trong game, không đại diện cho giá thiết bị thực tế.
+- `Striker-A2`: tên lửa tiêu chuẩn tốc độ cao.
+- `Hydra-M6`: tên lửa mẹ MIRV.
+- `Phantom-EW2`: gây nhiễu và đổi hướng.
+- `Hydra-Shadow X`: MIRV kết hợp gây nhiễu.
+- `Raven-Cruise`: tên lửa hành trình bay thấp.
+- `Meteor-Glide`: đầu đạn lượn tăng tốc pha cuối.
+- `Viper-C2`: đầu đạn con siêu tốc.
 
-## Khóa độc quyền bệ phòng thủ
+Bảy quỹ đạo:
 
-Hệ thống hiện áp dụng quy tắc nghiêm ngặt:
+- `linear`
+- `curved`
+- `evasive`
+- `weave`
+- `dive`
+- `cruise`
+- `boost_glide`
 
-1. Mỗi mục tiêu có một `uid` riêng.
-2. Radar chọn đúng một bệ làm **bệ chủ quản** của mục tiêu.
-3. Khi đã có một đạn đánh chặn đang bay, không bệ nào được bắn thêm vào mục tiêu đó.
-4. Sau khi đạn đánh chặn kết thúc, bệ chủ quản được quyền thử lại nếu mục tiêu vẫn còn.
-5. Bệ khác chỉ được tiếp quản khi bệ chủ quản hết đạn, không còn nghiệm đánh chặn, hoặc không thể nạp xong trước lúc mục tiêu va chạm.
-6. Một mục tiêu luôn có tối đa một đạn phòng thủ đang bay.
+Đầu đạn con sau khi tách có tốc độ cao hơn đầu đạn mẹ khoảng `1.55–1.84 lần`, đồng thời dùng quỹ đạo né tránh, dệt hoặc bổ nhào.
 
-HUD hiển thị số `Exclusive locks` và số lần `Takeovers` để kiểm tra việc phân công.
-
-## Thống kê và chi phí
-
-HUD hiển thị:
-
-- Tổng số đạn tấn công đã phát sinh và số đang bay.
-- Tổng số đạn phòng thủ đã bắn và số đang bay.
-- Tổng chi phí tấn công và phòng thủ.
-- Tỷ lệ chi phí tấn công/phòng thủ.
-- Số mục tiêu đang được khóa cho từng bệ.
-
-Nhấn `D` để mở bảng chi tiết:
-
-- Số lượng từng loại tên lửa và đầu đạn tấn công.
-- Số lượng từng loại đạn đánh chặn phòng thủ.
-- Giá đơn vị và tổng chi phí từng loại.
-- Tốc độ, độ chính xác, bán kính nổ, đạn còn lại và số mục tiêu đang giữ của từng bệ.
-
-## Cài đặt
-
-Yêu cầu Python 3.11 trở lên.
+## Chạy game
 
 ```powershell
 python -m venv .venv
@@ -77,12 +58,12 @@ python main.py
 
 | Phím | Chức năng |
 |---|---|
-| `D` | Mở/đóng bảng thông số và chi phí |
+| `D` | Mở/đóng bảng chi tiết |
 | `Space` | Tạm dừng / tiếp tục |
-| `A` | Bật hoặc tắt phòng thủ tự động |
-| `N` | Gọi đợt tấn công tiếp theo |
+| `A` | Bật/tắt phòng thủ tự động |
+| `N` | Gọi wave tiếp theo |
 | `R` | Chơi lại |
-| `Esc` | Thoát game |
+| `Esc` | Thoát |
 
 ## Cấu trúc
 
