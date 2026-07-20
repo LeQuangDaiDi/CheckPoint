@@ -1,49 +1,69 @@
 # CheckPoint
 
-Game phòng thủ 2D viết bằng Python và Pygame. Hệ thống radar tự động phát hiện, đánh giá mức nguy hiểm, dự đoán điểm đánh chặn và phân bổ vũ khí theo vai trò.
+Game phòng thủ 2D viết bằng Python và Pygame. Radar tự động phát hiện, dự đoán điểm đánh chặn, phân bổ vũ khí và so sánh hiệu quả chi phí giữa bên tấn công và phòng thủ.
 
-## Tính năng hiện tại
+## Tên các loại đạn
 
 ### Tấn công
 
-- Đạn có tốc độ, sát thương, bán kính nổ, độ chính xác và ba loại quỹ đạo.
-- Mẫu tấn công dạng `số đạn mỗi lượt × số lượt`.
-- Đầu đạn chính có thể tách thành 2–7 đầu đạn con ở độ cao ngẫu nhiên.
-- Đầu đạn con bay tỏa ra nhiều hướng và có thể dùng quỹ đạo né tránh.
-- Một số đầu đạn mang thiết bị gây nhiễu radar.
-- Nhiễu mạnh làm giảm số kênh radar theo dõi và giảm độ chính xác của hỏa lực phòng thủ.
+| Tên | Vai trò | Giá mô phỏng |
+|---|---|---:|
+| `Striker-A1` | Tên lửa tấn công tiêu chuẩn | $1.20M |
+| `Hydra-M4` | Tên lửa mẹ mang nhiều đầu đạn | $4.80M |
+| `Phantom-EW` | Tên lửa gây nhiễu radar | $3.60M |
+| `Hydra-Shadow` | Tên lửa mẹ vừa tách đầu đạn vừa gây nhiễu | $6.50M |
+| `Viper-C` | Đầu đạn con cơ động | $0.42M |
 
 ### Phòng thủ
 
-- Radar có phạm vi quét, số kênh theo dõi, tốc độ xử lý và khả năng chống nhiễu ECCM.
-- Radar ưu tiên theo dõi mục tiêu gần căn cứ nhất khi bị quá tải.
-- `Precision`: tốc độ rất cao, độ chính xác cao, ưu tiên đầu đạn mẹ và mục tiêu gây nhiễu.
-- `Flak`: bán kính nổ lớn, phù hợp đánh chặn cụm mục tiêu.
-- `Rapid-A` và `Rapid-B`: tốc độ bắn cao, nhiều đạn, xử lý đầu đạn con và tấn công đa mục tiêu.
-- AI tính điểm nguy hiểm dựa trên thời gian va chạm, tốc độ, sát thương, số đầu đạn con, mức gây nhiễu và quỹ đạo.
-- AI ước lượng số đạn đánh chặn cần thiết và tránh dồn quá nhiều đạn vào cùng một mục tiêu.
-- HUD hiển thị số mục tiêu radar theo dõi và mức nhiễu hiện tại.
+| Tên | Vai trò | Giá mỗi phát |
+|---|---|---:|
+| `Aegis-LR` | Đánh chặn chính xác cao, ưu tiên đầu đạn mẹ | $2.10M |
+| `Skyburst-F` | Nổ vùng, xử lý cụm mục tiêu | $0.78M |
+| `Falcon-CIWS` | Đánh chặn nhanh đa mục tiêu | $0.24M |
+| `Viper-CIWS` | Đánh chặn nhanh dự phòng | $0.29M |
+
+Các mức giá chỉ phục vụ cân bằng và phân tích kinh tế trong game, không đại diện cho giá thiết bị thực tế.
+
+## Tối ưu phân bổ đạn phòng thủ
+
+- Mỗi mục tiêu có `uid` riêng.
+- Đạn phòng thủ đang bay được ghi nhận là một cam kết đánh chặn.
+- AI không bắn thêm khi xác suất tiêu diệt tích lũy đã đạt ngưỡng yêu cầu.
+- Xác suất tích lũy được tính theo công thức `1 - tích các xác suất trượt`.
+- Đầu đạn con giá trị thấp dùng ngưỡng khoảng 82%.
+- Tên lửa thông thường dùng ngưỡng khoảng 92%.
+- Đầu đạn mẹ lớn hoặc mục tiêu gây nhiễu dùng ngưỡng khoảng 97%.
+- AI ưu tiên vũ khí rẻ nhất đáp ứng nhiệm vụ.
+- `Aegis-LR` được giữ lại cho đầu đạn mẹ, mục tiêu gây nhiễu và mục tiêu có giá trị cao.
+- `Falcon-CIWS` và `Viper-CIWS` xử lý đầu đạn con để giảm chi phí.
+- `Skyburst-F` ưu tiên cụm mục tiêu nhờ bán kính nổ lớn.
+
+## Thống kê và chi phí
+
+HUD hiển thị:
+
+- Tổng số đạn tấn công đã phát sinh.
+- Tổng số đạn phòng thủ đã bắn.
+- Tổng chi phí tấn công.
+- Tổng chi phí phòng thủ.
+- Tỷ lệ chi phí tấn công/phòng thủ.
+- Tổng mục tiêu đánh chặn và số mục tiêu hiện tại.
+
+Nhấn `D` để mở bảng chi tiết:
+
+- Số lượng từng loại tên lửa và đầu đạn.
+- Giá đơn vị và tổng chi phí từng loại.
+- Tốc độ, độ chính xác, bán kính nổ và đạn còn lại của từng vũ khí phòng thủ.
+- Bên có tổng chi phí thấp hơn và chênh lệch chi phí.
 
 ## Cài đặt
 
 Yêu cầu Python 3.11 trở lên.
 
-```bash
-python -m venv .venv
-```
-
-Windows PowerShell:
-
 ```powershell
+python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python main.py
-```
-
-Linux/macOS:
-
-```bash
-source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
@@ -52,6 +72,7 @@ python main.py
 
 | Phím | Chức năng |
 |---|---|
+| `D` | Mở/đóng bảng thông số và chi phí |
 | `Space` | Tạm dừng / tiếp tục |
 | `A` | Bật hoặc tắt phòng thủ tự động |
 | `N` | Gọi đợt tấn công tiếp theo |
@@ -66,17 +87,8 @@ CheckPoint/
 ├── requirements.txt
 └── checkpoint/
     ├── algorithms.py
+    ├── catalog.py
     ├── entities.py
     ├── game.py
     └── settings.py
 ```
-
-## Thuật toán đánh chặn
-
-Với vị trí mục tiêu `P`, vận tốc mục tiêu `V`, vị trí vũ khí `D`, tốc độ đạn phòng thủ `S` và thời gian `t`:
-
-```text
-|P + Vt - D|² = S²t²
-```
-
-Hệ thống giải phương trình bậc hai, chọn nghiệm dương nhỏ nhất rồi bắn tới `P + Vt`. Sai số cuối cùng được điều chỉnh theo độ chính xác vũ khí và chất lượng tín hiệu radar sau gây nhiễu.
