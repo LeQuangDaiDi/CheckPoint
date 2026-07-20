@@ -8,31 +8,13 @@ import pygame
 
 from .catalog import ATTACK_MODELS, CURRENCY, DEFENSE_MODELS
 from .entities import (
-    AttackProjectile,
-    Base,
-    DefenseProjectile,
-    DefenseWeapon,
-    Explosion,
-    RadarSystem,
-    TrajectoryType,
-    WeaponRole,
+    AttackProjectile, Base, DefenseProjectile, DefenseWeapon, Explosion,
+    RadarSystem, TrajectoryType, WeaponRole,
 )
 from .settings import (
-    ATTACK,
-    BACKGROUND,
-    BASE_POSITION,
-    DANGER,
-    FPS,
-    GRID,
-    GROUND,
-    GROUND_Y,
-    HEIGHT,
-    MUTED_TEXT,
-    SUCCESS,
-    TEXT,
-    TITLE,
-    WARNING,
-    WIDTH,
+    ATTACK, BACKGROUND, BASE_POSITION, DANGER, DEFENSE, FPS, GRID, GROUND,
+    GROUND_Y, HEIGHT, MUTED_TEXT, PANEL, PANEL_BORDER, SKY_BOTTOM, SKY_TOP,
+    SUCCESS, TEXT, TITLE, WARNING, WIDTH,
 )
 
 Vector = pygame.Vector2
@@ -52,39 +34,32 @@ class Game:
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont("consolas", 18)
+        self.font = pygame.font.SysFont("consolas", 18, bold=True)
         self.small_font = pygame.font.SysFont("consolas", 14)
+        self.tiny_font = pygame.font.SysFont("consolas", 12)
         self.large_font = pygame.font.SysFont("consolas", 42, bold=True)
         self.running = True
         self.reset()
 
     def reset(self) -> None:
         self.base = Base(Vector(BASE_POSITION))
-        self.radar = RadarSystem(Vector(WIDTH * 0.5, GROUND_Y - 12))
+        self.radar = RadarSystem(Vector(WIDTH * .5, GROUND_Y - 18))
         self.attack_projectiles: list[AttackProjectile] = []
         self.defense_projectiles: list[DefenseProjectile] = []
         self.explosions: list[Explosion] = []
         self.weapons = [
-            DefenseWeapon(
-                "PRECISION", DEFENSE_MODELS["PRECISION"]["name"], Vector(WIDTH * .20, GROUND_Y),
-                760, 34, .993, .28, 1280, 150, DEFENSE_MODELS["PRECISION"]["unit_cost"],
-                WeaponRole.PRECISION, 2, 1,
-            ),
-            DefenseWeapon(
-                "AREA", DEFENSE_MODELS["AREA"]["name"], Vector(WIDTH * .38, GROUND_Y),
-                430, 104, .91, .66, 1080, 110, DEFENSE_MODELS["AREA"]["unit_cost"],
-                WeaponRole.AREA, 1, 1,
-            ),
-            DefenseWeapon(
-                "RAPID_A", DEFENSE_MODELS["RAPID_A"]["name"], Vector(WIDTH * .64, GROUND_Y),
-                640, 40, .95, .12, 1140, 320, DEFENSE_MODELS["RAPID_A"]["unit_cost"],
-                WeaponRole.RAPID, 4, 2,
-            ),
-            DefenseWeapon(
-                "RAPID_B", DEFENSE_MODELS["RAPID_B"]["name"], Vector(WIDTH * .80, GROUND_Y),
-                670, 36, .96, .14, 1170, 280, DEFENSE_MODELS["RAPID_B"]["unit_cost"],
-                WeaponRole.RAPID, 4, 2,
-            ),
+            DefenseWeapon("PRECISION", DEFENSE_MODELS["PRECISION"]["name"], Vector(WIDTH*.16, GROUND_Y),
+                          900, 38, .994, .32, 1570, 170, DEFENSE_MODELS["PRECISION"]["unit_cost"],
+                          WeaponRole.PRECISION, 1, 1),
+            DefenseWeapon("AREA", DEFENSE_MODELS["AREA"]["name"], Vector(WIDTH*.34, GROUND_Y),
+                          520, 118, .92, .70, 1320, 125, DEFENSE_MODELS["AREA"]["unit_cost"],
+                          WeaponRole.AREA, 1, 1),
+            DefenseWeapon("RAPID_A", DEFENSE_MODELS["RAPID_A"]["name"], Vector(WIDTH*.68, GROUND_Y),
+                          760, 44, .958, .14, 1260, 360, DEFENSE_MODELS["RAPID_A"]["unit_cost"],
+                          WeaponRole.RAPID, 1, 1),
+            DefenseWeapon("RAPID_B", DEFENSE_MODELS["RAPID_B"]["name"], Vector(WIDTH*.84, GROUND_Y),
+                          800, 40, .966, .16, 1300, 320, DEFENSE_MODELS["RAPID_B"]["unit_cost"],
+                          WeaponRole.RAPID, 1, 1),
         ]
         self.wave = self.score = self.destroyed = self.spawned = self.children_spawned = 0
         self.attack_cost = self.defense_cost = 0
@@ -143,24 +118,19 @@ class Game:
                 for child in spawned:
                     self.attack_counts[child.model_key] += 1
                     self.attack_cost += child.unit_cost
-                self.explosions.append(
-                    Explosion(Vector(projectile.position), projectile.explosion_radius * .65, defensive=False)
-                )
-                self.target_owners.pop(projectile.uid, None)
+                self.explosions.append(Explosion(Vector(projectile.position), projectile.explosion_radius*.72, defensive=False))
                 continue
             if projectile.position.y >= GROUND_Y:
                 projectile.alive = False
                 distance = projectile.position.distance_to(self.base.position)
-                if distance <= projectile.explosion_radius + 76:
-                    falloff = max(.2, 1 - distance / (projectile.explosion_radius + 76))
-                    self.base.take_damage(projectile.damage * falloff)
-                self.explosions.append(
-                    Explosion(Vector(projectile.position), projectile.explosion_radius, defensive=False)
-                )
+                if distance <= projectile.explosion_radius + 92:
+                    falloff = max(.2, 1-distance/(projectile.explosion_radius+92))
+                    self.base.take_damage(projectile.damage*falloff)
                 self.target_owners.pop(projectile.uid, None)
-
+                self.explosions.append(Explosion(Vector(projectile.position), projectile.explosion_radius, defensive=False))
         self.attack_projectiles.extend(children)
         self.current_tracks = self.radar.update(dt, self.attack_projectiles)
+        self.cleanup_target_owners()
 
         for weapon in self.weapons:
             weapon.update(dt)
@@ -170,43 +140,40 @@ class Game:
         new_explosions: list[Explosion] = []
         for projectile in self.defense_projectiles:
             if projectile.update(dt):
-                new_explosions.append(
-                    Explosion(Vector(projectile.position), projectile.explosion_radius)
-                )
+                new_explosions.append(Explosion(Vector(projectile.position), projectile.explosion_radius))
                 self.apply_defense_explosion(projectile.position, projectile.explosion_radius)
         self.explosions.extend(new_explosions)
         for explosion in self.explosions:
             explosion.update(dt)
 
-        self.attack_projectiles = [
-            p for p in self.attack_projectiles if p.alive and p.position.y < HEIGHT + 100
-        ]
+        self.attack_projectiles = [p for p in self.attack_projectiles if p.alive and -150 < p.position.x < WIDTH+150 and p.position.y < HEIGHT+150]
         self.defense_projectiles = [p for p in self.defense_projectiles if p.alive]
         self.explosions = [e for e in self.explosions if e.alive]
-        self.cleanup_target_owners()
 
-    def schedule_wave(self, force: bool = False) -> None:
+    def schedule_wave(self, force: bool=False) -> None:
         if self.spawn_queue and not force:
             return
         self.wave += 1
         pattern = AttackPattern(
-            min(2 + self.wave // 3, 7),
-            min(2 + self.wave // 4, 6),
-            max(.045, .15 - self.wave * .004),
-            max(.28, .72 - self.wave * .018),
+            min(2+self.wave//3, 8), min(2+self.wave//4, 7),
+            max(.04, .145-self.wave*.004), max(.25, .70-self.wave*.018),
         )
-        trajectory = random.choices(
-            [TrajectoryType.LINEAR, TrajectoryType.CURVED, TrajectoryType.EVASIVE],
-            weights=[max(2, 8 - self.wave), 3, max(1, self.wave // 2)],
-        )[0]
         delay = 0.0
         for _ in range(pattern.burst_count):
             for shot in range(pattern.projectiles_per_burst):
-                self.spawn_queue.append(
-                    (delay + shot * pattern.projectile_interval, self.wave, trajectory)
-                )
+                trajectory = self.random_trajectory()
+                self.spawn_queue.append((delay+shot*pattern.projectile_interval, self.wave, trajectory))
             delay += pattern.burst_interval
-        self.wave_timer = max(2.8, 6.2 - self.wave * .08)
+        self.wave_timer = max(3.0, 6.5-self.wave*.08)
+
+    def random_trajectory(self) -> TrajectoryType:
+        choices = [
+            TrajectoryType.LINEAR, TrajectoryType.CURVED, TrajectoryType.EVASIVE,
+            TrajectoryType.WEAVE, TrajectoryType.DIVE, TrajectoryType.CRUISE,
+            TrajectoryType.BOOST_GLIDE,
+        ]
+        weights = [5, 3, 3, max(1, self.wave//3), max(1, self.wave//4), max(1, self.wave//5), max(1, self.wave//6)]
+        return random.choices(choices, weights=weights)[0]
 
     def update_spawn_queue(self, dt: float) -> None:
         remaining: list[tuple[float, int, TrajectoryType]] = []
@@ -219,28 +186,25 @@ class Game:
         self.spawn_queue = remaining
 
     def spawn_attack_projectile(self, wave: int, trajectory: TrajectoryType) -> None:
-        start = Vector(random.randint(70, WIDTH - 70), random.randint(25, 80))
-        direction = self.base.position + Vector(random.uniform(-120, 120), 0) - start
-        mirv = random.random() < min(.58, max(0, (wave - 2) * .055))
-        jammer = random.random() < min(.48, max(0, (wave - 3) * .045))
-        key = "MIRV_JAMMER" if mirv and jammer else "MIRV" if mirv else "JAMMER" if jammer else "STRIKER"
+        start = Vector(random.randint(110, WIDTH-110), random.randint(26, 90))
+        direction = self.base.position + Vector(random.uniform(-190, 190), 0) - start
+        mirv = random.random() < min(.64, max(0, (wave-2)*.06))
+        jammer = random.random() < min(.52, max(0, (wave-3)*.048))
+        if trajectory is TrajectoryType.CRUISE:
+            key = "CRUISE"
+        elif trajectory is TrajectoryType.BOOST_GLIDE:
+            key = "BOOST_GLIDE"
+        else:
+            key = "MIRV_JAMMER" if mirv and jammer else "MIRV" if mirv else "JAMMER" if jammer else "STRIKER"
         model = ATTACK_MODELS[key]
-        speed = min(340, 105 + wave * 8 + random.uniform(-12, 18)) * float(model["speed_factor"])
-        velocity = direction.normalize() * speed
-        spread = max(2, 18 - wave * .45)
-        velocity.rotate_ip(random.uniform(-spread, spread))
-        child_count = random.randint(2, min(7, 2 + wave // 2)) if mirv else 0
+        speed = min(430, 132+wave*10+random.uniform(-14, 24))*float(model["speed_factor"])
+        velocity = direction.normalize()*speed
+        velocity.rotate_ip(random.uniform(-max(2, 16-wave*.38), max(2, 16-wave*.38)))
+        child_count = random.randint(3, min(10, 3+wave//2)) if mirv else 0
         projectile = AttackProjectile(
-            start,
-            velocity,
-            (65 + wave * 7) * float(model["damage_factor"]),
-            min(90, 28 + wave * 2.4),
-            key,
-            trajectory,
-            min(.98, .72 + wave * .012),
-            child_count,
-            random.uniform(230, 420),
-            random.uniform(.18, .55) if jammer else 0.0,
+            start, velocity, (72+wave*8)*float(model["damage_factor"]),
+            min(105, 32+wave*2.8), key, trajectory, min(.99, .76+wave*.012),
+            child_count, random.uniform(260, 500), random.uniform(.20, .62) if jammer else 0.0,
         )
         self.attack_projectiles.append(projectile)
         self.spawned += 1
@@ -268,24 +232,26 @@ class Game:
         if owner is None or owner.ammo <= 0:
             return False
         solution = owner.find_intercept(target)
-        if solution is None or solution.position.y > GROUND_Y + 20:
+        if solution is None or solution.position.y > GROUND_Y+20:
             return False
-        time_to_impact = max(.0, (GROUND_Y - target.position.y) / max(1.0, target.velocity.y))
-        return owner.cooldown <= time_to_impact
+        tti = max(0.0, (GROUND_Y-target.position.y)/max(1.0, target.velocity.y))
+        return owner.cooldown <= tti
 
     def select_owner(self, target: AttackProjectile, radar_accuracy: float) -> tuple[DefenseWeapon, object] | None:
         options: list[tuple[float, DefenseWeapon, object]] = []
-        target_value = target.unit_cost + target.child_warheads * ATTACK_MODELS["CHILD"]["unit_cost"]
+        target_value = target.unit_cost + target.child_warheads*ATTACK_MODELS["CHILD"]["unit_cost"]
+        distance_to_base = target.position.distance_to(self.base.position)
+        urgency = 1.0 + max(0.0, 1.0-distance_to_base/1400.0)*2.6
         for weapon in self.weapons:
             if weapon.ammo <= 0:
                 continue
             solution = weapon.find_intercept(target)
-            if solution is None or solution.position.y > GROUND_Y + 20:
+            if solution is None or solution.position.y > GROUND_Y+20:
                 continue
             pk = weapon.estimated_pk(target, radar_accuracy)
             fit = self.weapon_fit(weapon, target)
-            delay_penalty = 1.0 + weapon.cooldown * 2.0
-            economy = (target_value * pk * fit) / max(1, weapon.unit_cost * delay_penalty)
+            delay_penalty = 1.0+weapon.cooldown*2.2
+            economy = (target_value*pk*fit*urgency)/max(1, weapon.unit_cost*delay_penalty)
             options.append((economy, weapon, solution))
         if not options:
             return None
@@ -295,24 +261,18 @@ class Game:
     def update_defense_ai(self) -> None:
         if not self.current_tracks:
             return
-
         commitments = self.active_commitments()
         radar_accuracy = self.radar.accuracy_factor()
-        tracks = sorted(self.current_tracks, key=self.calculate_threat, reverse=True)
-
+        tracks = sorted(self.current_tracks, key=self.nearest_target_priority)
         for target in tracks:
             if not target.alive:
                 continue
-
-            active = commitments.get(target.uid, [])
-            if active:
+            if commitments.get(target.uid):
                 self.prevented_duplicate_shots += 1
                 continue
-
             owner_key = self.target_owners.get(target.uid)
             owner: DefenseWeapon | None = None
             solution = None
-
             if owner_key is not None:
                 if self.owner_can_defend(owner_key, target):
                     owner = self.weapon_by_key(owner_key)
@@ -322,17 +282,14 @@ class Game:
                     self.target_owners.pop(target.uid, None)
                     self.takeovers += 1
                     owner_key = None
-
             if owner_key is None:
                 selected = self.select_owner(target, radar_accuracy)
                 if selected is None:
                     continue
                 owner, solution = selected
                 self.target_owners[target.uid] = owner.key
-
             if owner is None or solution is None or not owner.ready:
                 continue
-
             projectile = owner.fire(solution, target, radar_accuracy)
             self.defense_projectiles.append(projectile)
             commitments[target.uid] = [projectile]
@@ -340,52 +297,40 @@ class Game:
             self.defense_cost += owner.unit_cost
             owner.target_id = target.uid
 
+    def nearest_target_priority(self, target: AttackProjectile) -> tuple[float, float, float]:
+        distance = target.position.distance_to(self.base.position)
+        tti = max(.02, (GROUND_Y-target.position.y)/max(1.0, target.velocity.y))
+        return (tti, distance, -self.calculate_threat(target))
+
     def calculate_threat(self, target: AttackProjectile) -> float:
-        time_to_impact = max(.05, (GROUND_Y - target.position.y) / max(1, target.velocity.y))
-        return (
-            target.damage * .45
-            + 190 / time_to_impact
-            + target.speed * .18
-            + target.child_warheads * 58
-            + target.jammer_strength * 260
-        )
+        tti = max(.05, (GROUND_Y-target.position.y)/max(1, target.velocity.y))
+        return target.damage*.45 + 260/tti + target.speed*.22 + target.child_warheads*72 + target.jammer_strength*310
 
     @staticmethod
     def weapon_fit(weapon: DefenseWeapon, target: AttackProjectile) -> float:
         fit = 1.0
         if target.child_warheads >= 3:
-            fit *= 1.6 if weapon.role is WeaponRole.PRECISION else .75
+            fit *= 1.7 if weapon.role is WeaponRole.PRECISION else .72
         if target.is_child:
-            fit *= 1.8 if weapon.role is WeaponRole.RAPID else .75
+            fit *= 1.95 if weapon.role is WeaponRole.RAPID else .70
         if target.jammer_strength > .25:
-            fit *= 1.45 if weapon.role is WeaponRole.PRECISION else .85
+            fit *= 1.5 if weapon.role is WeaponRole.PRECISION else .82
         if weapon.role is WeaponRole.AREA and target.is_child:
-            fit *= 1.25
-        if target.speed > 260 and weapon.projectile_speed < 500:
-            fit *= .6
+            fit *= 1.30
+        if target.speed > 340 and weapon.projectile_speed < 620:
+            fit *= .52
         return fit
 
     def apply_defense_explosion(self, position: Vector, radius: float) -> None:
         for target in self.attack_projectiles:
-            if target.alive and target.position.distance_to(position) <= radius + target.radius:
+            if target.alive and target.position.distance_to(position) <= radius+target.radius:
                 target.alive = False
                 self.target_owners.pop(target.uid, None)
                 self.destroyed += 1
-                self.score += int(
-                    100
-                    + target.speed * .5
-                    + target.damage
-                    + target.child_warheads * 30
-                    + target.jammer_strength * 180
-                )
+                self.score += int(120+target.speed*.55+target.damage+target.child_warheads*38+target.jammer_strength*210)
 
     def draw(self) -> None:
-        self.screen.fill(BACKGROUND)
-        for x in range(0, WIDTH, 48):
-            pygame.draw.line(self.screen, GRID, (x, 0), (x, GROUND_Y), 1)
-        for y in range(0, GROUND_Y, 48):
-            pygame.draw.line(self.screen, GRID, (0, y), (WIDTH, y), 1)
-        pygame.draw.rect(self.screen, GROUND, (0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y))
+        self.draw_pixel_background()
         for explosion in self.explosions:
             explosion.draw(self.screen)
         for projectile in self.attack_projectiles:
@@ -402,144 +347,119 @@ class Game:
         if self.paused:
             self.draw_center_message("PAUSED", "SPACE to continue")
         elif not self.base.alive:
-            self.draw_center_message("CHECKPOINT LOST", "Press R to restart")
+            self.draw_center_message("RADAR COMMAND LOST", "Press R to restart")
         pygame.display.flip()
 
+    def draw_pixel_background(self) -> None:
+        self.screen.fill(BACKGROUND)
+        bands = 18
+        for index in range(bands):
+            t = index/(bands-1)
+            color = tuple(int(a+(b-a)*t) for a, b in zip(SKY_TOP, SKY_BOTTOM))
+            y = int(index*GROUND_Y/bands)
+            pygame.draw.rect(self.screen, color, (0, y, WIDTH, GROUND_Y//bands+2))
+        for x in range(0, WIDTH, 64):
+            pygame.draw.line(self.screen, GRID, (x, 0), (x, GROUND_Y), 1)
+        for y in range(0, GROUND_Y, 64):
+            pygame.draw.line(self.screen, GRID, (0, y), (WIDTH, y), 1)
+        for x in range(0, WIDTH, 48):
+            height = 10 + ((x//48)*13 % 44)
+            pygame.draw.rect(self.screen, (25, 43, 54), (x, GROUND_Y-height, 38, height))
+        pygame.draw.rect(self.screen, GROUND, (0, GROUND_Y, WIDTH, HEIGHT-GROUND_Y))
+        pygame.draw.rect(self.screen, (56, 83, 78), (0, GROUND_Y, WIDTH, 6))
+
+    def panel_box(self, rect: pygame.Rect, title: str, title_color: tuple[int, int, int]) -> None:
+        pygame.draw.rect(self.screen, PANEL, rect)
+        pygame.draw.rect(self.screen, PANEL_BORDER, rect, 2)
+        pygame.draw.rect(self.screen, title_color, (rect.x, rect.y, rect.width, 28))
+        self.screen.blit(self.small_font.render(title, True, (7, 15, 24)), (rect.x+10, rect.y+6))
+
     def draw_hud(self) -> None:
-        ratio = self.base.health / self.base.max_health
-        pygame.draw.rect(self.screen, (28, 38, 52), (20, 18, 330, 25), border_radius=5)
-        color = SUCCESS if ratio > .55 else WARNING if ratio > .25 else DANGER
-        pygame.draw.rect(self.screen, color, (20, 18, int(330 * ratio), 25), border_radius=5)
-        self.screen.blit(
-            self.small_font.render(
-                f"BASE {self.base.health:05.0f}/{self.base.max_health:.0f}", True, TEXT
-            ),
-            (30, 22),
-        )
+        health_ratio = self.base.health/self.base.max_health
+        pygame.draw.rect(self.screen, (16, 29, 43), (20, 18, 390, 30))
+        color = SUCCESS if health_ratio > .55 else WARNING if health_ratio > .25 else DANGER
+        pygame.draw.rect(self.screen, color, (20, 18, int(390*health_ratio), 30))
+        self.screen.blit(self.small_font.render(f"RADAR COMMAND {self.base.health:05.0f}/{self.base.max_health:.0f}", True, TEXT), (30, 25))
 
         total_attack = sum(self.attack_counts.values())
         total_defense = sum(self.defense_counts.values())
-        saved_ratio = self.attack_cost / max(1, self.defense_cost)
-        active_attack = len(self.attack_projectiles)
-        active_defense = len(self.defense_projectiles)
-
-        lines = [
-            f"Wave {self.wave}   Score {self.score}",
-            f"ATTACK MISSILES: launched {total_attack} | airborne {active_attack} | cost {CURRENCY}{self.attack_cost:,}",
-            f"DEFENSE INTERCEPTORS: fired {total_defense} | airborne {active_defense} | cost {CURRENCY}{self.defense_cost:,}",
-            f"Cost ratio A/D: {saved_ratio:.2f}x   Intercepted: {self.destroyed}/{self.spawned + self.children_spawned}",
-            f"Radar: {self.radar.detected_count}/{self.radar.tracking_channels}   Jamming: {self.radar.jam_level * 100:.1f}%",
-            f"Exclusive locks: {len(self.target_owners)}   Takeovers: {self.takeovers}   Auto: {'ON' if self.auto_defense else 'OFF'}",
+        info = [
+            f"WAVE {self.wave:02d}  SCORE {self.score:07d}",
+            f"ATTACK launched {total_attack:03d} airborne {len(self.attack_projectiles):03d}",
+            f"DEFENSE fired {total_defense:03d} airborne {len(self.defense_projectiles):03d}",
+            f"RADAR {self.radar.detected_count:02d}/{self.radar.tracking_channels}  JAM {self.radar.jam_level*100:04.1f}%",
+            f"LOCKS {len(self.target_owners):02d}  TAKEOVERS {self.takeovers:02d}",
         ]
-        for index, line in enumerate(lines):
-            self.screen.blit(self.font.render(line, True, TEXT), (20, 54 + index * 23))
+        for index, line in enumerate(info):
+            self.screen.blit(self.font.render(line, True, TEXT), (20, 62+index*24))
 
-        legend_y = 202
-        pygame.draw.polygon(
-            self.screen,
-            ATTACK,
-            [(25, legend_y - 6), (17, legend_y + 6), (33, legend_y + 6)],
-        )
-        self.screen.blit(
-            self.small_font.render("ATTACK missile / warhead", True, ATTACK),
-            (42, legend_y - 8),
-        )
-        pygame.draw.circle(self.screen, (89, 173, 255), (225, legend_y), 5)
-        self.screen.blit(
-            self.small_font.render("DEFENSE interceptor", True, (89, 173, 255)),
-            (238, legend_y - 8),
-        )
+        attack_rect = pygame.Rect(WIDTH-410, 18, 390, 244)
+        defense_rect = pygame.Rect(WIDTH-410, 276, 390, 250)
+        self.panel_box(attack_rect, "ATTACK ARSENAL / DAN TAN CONG", ATTACK)
+        self.panel_box(defense_rect, "DEFENSE BATTERIES / DAN PHONG THU", DEFENSE)
 
-        controls = "D Details   SPACE Pause   A Auto   N Next wave   R Restart   ESC Exit"
-        self.screen.blit(
-            self.small_font.render(controls, True, MUTED_TEXT),
-            (20, HEIGHT - 28),
-        )
+        y = attack_rect.y+38
+        for key, model in ATTACK_MODELS.items():
+            count = self.attack_counts[key]
+            line = f"{model['name']:<18} x{count:03d}  ${model['unit_cost']/1_000_000:4.2f}M"
+            self.screen.blit(self.tiny_font.render(line, True, TEXT), (attack_rect.x+12, y))
+            y += 27
 
-        panel = pygame.Rect(WIDTH - 390, 15, 370, 118)
-        pygame.draw.rect(self.screen, (14, 25, 42), panel, border_radius=7)
-        pygame.draw.rect(self.screen, GRID, panel, 1, border_radius=7)
-        for index, weapon in enumerate(self.weapons):
+        y = defense_rect.y+38
+        for weapon in self.weapons:
+            locks = sum(1 for owner in self.target_owners.values() if owner == weapon.key)
             status = "READY" if weapon.ready else f"{weapon.cooldown:.2f}s"
-            owned = sum(1 for key in self.target_owners.values() if key == weapon.key)
-            text = (
-                f"{weapon.name:<13} ammo {weapon.ammo:03d} "
-                f"locks {owned:02d} ${weapon.unit_cost / 1_000_000:.2f}M {status}"
-            )
-            self.screen.blit(
-                self.small_font.render(text, True, TEXT),
-                (WIDTH - 378, 24 + index * 23),
-            )
+            line = f"{weapon.name:<16} ammo {weapon.ammo:03d} lock {locks:02d} {status}"
+            self.screen.blit(self.tiny_font.render(line, True, TEXT), (defense_rect.x+12, y))
+            y += 45
+            details = f"spd {weapon.projectile_speed:.0f} pk {weapon.accuracy*100:.1f}% r {weapon.explosion_radius:.0f} ${weapon.unit_cost/1_000_000:.2f}M"
+            self.screen.blit(self.tiny_font.render(details, True, MUTED_TEXT), (defense_rect.x+24, y-20))
+
+        economy_rect = pygame.Rect(WIDTH-410, 540, 390, 112)
+        self.panel_box(economy_rect, "BATTLE ECONOMY", WARNING)
+        ratio = self.attack_cost/max(1, self.defense_cost)
+        economy = [
+            f"Attack cost  {CURRENCY}{self.attack_cost:,}",
+            f"Defense cost {CURRENCY}{self.defense_cost:,}",
+            f"A/D ratio    {ratio:.2f}x",
+        ]
+        for index, line in enumerate(economy):
+            self.screen.blit(self.small_font.render(line, True, TEXT), (economy_rect.x+14, economy_rect.y+38+index*22))
+
+        controls = "D DETAILS   SPACE PAUSE   A AUTO   N NEXT WAVE   R RESTART   ESC EXIT"
+        self.screen.blit(self.small_font.render(controls, True, MUTED_TEXT), (20, HEIGHT-29))
 
     def draw_detail_panel(self) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((4, 9, 17, 232))
+        overlay.fill((3, 8, 16, 238))
         self.screen.blit(overlay, (0, 0))
-        self.screen.blit(
-            self.large_font.render("MISSILE CLASSIFICATION & ECONOMY", True, TEXT),
-            (55, 34),
-        )
-        x1, x2 = 55, 650
-        self.screen.blit(self.font.render("ATTACK MISSILES / WARHEADS", True, ATTACK), (x1, 100))
-        y = 130
+        self.screen.blit(self.large_font.render("PIXEL MISSILE COMMAND DATABASE", True, TEXT), (56, 38))
+        x1, x2 = 56, WIDTH//2+18
+        self.screen.blit(self.font.render("ATTACK MISSILES", True, ATTACK), (x1, 105))
+        self.screen.blit(self.font.render("DEFENSE INTERCEPTORS", True, DEFENSE), (x2, 105))
+        y = 138
         for key, model in ATTACK_MODELS.items():
             count = self.attack_counts[key]
-            line = (
-                f"{model['name']:<16} qty {count:03d}  "
-                f"unit ${model['unit_cost'] / 1_000_000:.2f}M  "
-                f"total ${count * model['unit_cost'] / 1_000_000:.2f}M"
-            )
-            self.screen.blit(self.small_font.render(line, True, TEXT), (x1, y))
-            y += 25
-            self.screen.blit(
-                self.small_font.render(str(model["description"]), True, MUTED_TEXT),
-                (x1 + 16, y),
-            )
-            y += 30
-
-        self.screen.blit(self.font.render("DEFENSE INTERCEPTORS", True, (89, 173, 255)), (x2, 100))
-        y = 130
-        for weapon in self.weapons:
-            count = self.defense_counts[weapon.key]
-            model = DEFENSE_MODELS[weapon.key]
-            owned = sum(1 for key in self.target_owners.values() if key == weapon.key)
-            line = (
-                f"{weapon.name:<16} fired {count:03d}  "
-                f"unit ${weapon.unit_cost / 1_000_000:.2f}M  locks {owned:02d}"
-            )
-            self.screen.blit(self.small_font.render(line, True, TEXT), (x2, y))
-            y += 23
-            stats = (
-                f"speed {weapon.projectile_speed:.0f}  accuracy {weapon.accuracy * 100:.1f}%  "
-                f"radius {weapon.explosion_radius:.0f}  ammo {weapon.ammo}"
-            )
-            self.screen.blit(self.small_font.render(stats, True, TEXT), (x2 + 16, y))
+            self.screen.blit(self.small_font.render(
+                f"{model['name']:<18} qty {count:03d} unit ${model['unit_cost']/1_000_000:.2f}M", True, TEXT), (x1, y))
             y += 22
-            self.screen.blit(
-                self.small_font.render(str(model["description"]), True, MUTED_TEXT),
-                (x2 + 16, y),
-            )
-            y += 31
-
-        cheaper = "DEFENSE" if self.defense_cost < self.attack_cost else "ATTACK"
-        delta = abs(self.attack_cost - self.defense_cost)
-        summary = (
-            f"Cheaper side: {cheaper} | Difference: ${delta:,} | "
-            f"Rule: one target = one launcher = one interceptor in flight | D to close"
-        )
-        self.screen.blit(self.font.render(summary, True, WARNING), (55, HEIGHT - 55))
+            self.screen.blit(self.tiny_font.render(str(model['description']), True, MUTED_TEXT), (x1+16, y))
+            y += 34
+        y = 138
+        for weapon in self.weapons:
+            self.screen.blit(self.small_font.render(
+                f"{weapon.name:<18} fired {self.defense_counts[weapon.key]:03d} ammo {weapon.ammo:03d}", True, TEXT), (x2, y))
+            y += 22
+            self.screen.blit(self.tiny_font.render(
+                f"speed {weapon.projectile_speed:.0f} accuracy {weapon.accuracy*100:.1f}% radius {weapon.explosion_radius:.0f} cost ${weapon.unit_cost/1_000_000:.2f}M", True, MUTED_TEXT), (x2+16, y))
+            y += 44
+        self.screen.blit(self.font.render("Press D to close", True, WARNING), (56, HEIGHT-60))
 
     def draw_center_message(self, title: str, subtitle: str) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 165))
+        overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
-        title_surface = self.large_font.render(title, True, ATTACK)
-        subtitle_surface = self.font.render(subtitle, True, TEXT)
-        self.screen.blit(
-            title_surface,
-            title_surface.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 24)),
-        )
-        self.screen.blit(
-            subtitle_surface,
-            subtitle_surface.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 28)),
-        )
+        a = self.large_font.render(title, True, ATTACK)
+        b = self.font.render(subtitle, True, TEXT)
+        self.screen.blit(a, a.get_rect(center=(WIDTH/2, HEIGHT/2-24)))
+        self.screen.blit(b, b.get_rect(center=(WIDTH/2, HEIGHT/2+28)))
