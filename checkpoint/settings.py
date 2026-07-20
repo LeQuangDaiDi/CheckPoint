@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+WIDTH = 1280
+HEIGHT = 720
+FPS = 60
+TITLE = "CheckPoint - Defense Interception"
+
+GROUND_Y = HEIGHT - 92
+BASE_POSITION = (WIDTH // 2, GROUND_Y + 18)
+BASE_MAX_HEALTH = 1000
+
+BACKGROUND = (10, 18, 33)
+GRID = (22, 38, 60)
+TEXT = (226, 235, 246)
+MUTED_TEXT = (143, 163, 187)
+DANGER = (255, 92, 92)
+SUCCESS = (91, 219, 158)
+WARNING = (255, 196, 87)
+DEFENSE = (89, 173, 255)
+ATTACK = (255, 126, 95)
+GROUND = (35, 54, 72)
+
+SPAWN_MARGIN = 80
