@@ -8,6 +8,7 @@ from enum import Enum
 import pygame
 
 from .algorithms import InterceptSolution, solve_linear_intercept
+from .catalog import ATTACK_MODELS
 from .settings import ATTACK, BASE_MAX_HEALTH, DEFENSE, DANGER, SUCCESS, WARNING
 
 Vector = pygame.Vector2
@@ -31,6 +32,7 @@ class AttackProjectile:
     velocity: Vector
     damage: float
     explosion_radius: float
+    model_key: str = "STRIKER"
     trajectory: TrajectoryType = TrajectoryType.LINEAR
     accuracy: float = 1.0
     child_warheads: int = 0
@@ -41,47 +43,54 @@ class AttackProjectile:
     alive: bool = True
     age: float = 0.0
     split_done: bool = False
+    uid: int = field(default_factory=lambda: random.getrandbits(60))
     phase: float = field(default_factory=lambda: random.uniform(0.0, math.tau))
 
     @property
     def speed(self) -> float:
         return self.velocity.length()
 
+    @property
+    def model(self) -> dict:
+        return ATTACK_MODELS[self.model_key]
+
+    @property
+    def name(self) -> str:
+        return str(self.model["name"])
+
+    @property
+    def unit_cost(self) -> int:
+        return int(self.model["unit_cost"])
+
     def predicted_velocity(self) -> Vector:
         return Vector(self.velocity)
 
     def should_split(self) -> bool:
-        return (
-            self.alive
-            and not self.split_done
-            and self.child_warheads > 0
-            and self.position.y >= self.split_altitude
-        )
+        return self.alive and not self.split_done and self.child_warheads > 0 and self.position.y >= self.split_altitude
 
     def create_child_warheads(self, target_y: float) -> list["AttackProjectile"]:
         self.split_done = True
         self.alive = False
         children: list[AttackProjectile] = []
-        base_direction = Vector(self.velocity)
-        if base_direction.length_squared() == 0:
-            base_direction = Vector(0, 1)
+        base_direction = Vector(self.velocity) if self.velocity.length_squared() else Vector(0, 1)
         spread = min(42.0, 12.0 + self.child_warheads * 3.5)
+        child_model = ATTACK_MODELS["CHILD"]
         for index in range(self.child_warheads):
             factor = 0.5 if self.child_warheads == 1 else index / (self.child_warheads - 1)
             angle = -spread / 2 + spread * factor + random.uniform(-3.5, 3.5)
             velocity = base_direction.rotate(angle)
-            velocity.scale_to_length(self.speed * random.uniform(0.92, 1.12))
+            velocity.scale_to_length(self.speed * random.uniform(0.92, 1.12) * float(child_model["speed_factor"]))
             children.append(
                 AttackProjectile(
                     position=Vector(self.position),
                     velocity=velocity,
-                    damage=self.damage * 0.46,
+                    damage=self.damage * float(child_model["damage_factor"]),
                     explosion_radius=max(18.0, self.explosion_radius * 0.55),
+                    model_key="CHILD",
                     trajectory=random.choice((TrajectoryType.LINEAR, TrajectoryType.EVASIVE)),
                     accuracy=max(0.6, self.accuracy - 0.08),
-                    child_warheads=0,
                     split_altitude=target_y,
-                    jammer_strength=self.jammer_strength * 0.35,
+                    jammer_strength=self.jammer_strength * 0.25,
                     is_child=True,
                     radius=4,
                 )
@@ -118,6 +127,10 @@ class DefenseProjectile:
     speed: float
     explosion_radius: float
     damage: float
+    target_uid: int
+    weapon_key: str
+    unit_cost: int
+    estimated_pk: float
     radius: int = 4
     alive: bool = True
 
@@ -158,8 +171,7 @@ class Explosion:
         self.age += dt
 
     def draw(self, surface: pygame.Surface) -> None:
-        color = SUCCESS if self.defensive else DANGER
-        pygame.draw.circle(surface, color, self.position, int(self.current_radius), 3)
+        pygame.draw.circle(surface, SUCCESS if self.defensive else DANGER, self.position, int(self.current_radius), 3)
 
 
 @dataclass(slots=True)
@@ -195,15 +207,11 @@ class RadarSystem:
 
     def update(self, dt: float, targets: list[AttackProjectile]) -> list[AttackProjectile]:
         self.scan_phase = (self.scan_phase + dt * self.processing_rate) % math.tau
-        nearby = [target for target in targets if target.alive and self.position.distance_to(target.position) <= self.range]
-        raw_jam = sum(
-            target.jammer_strength
-            * max(0.0, 1.0 - self.position.distance_to(target.position) / self.range)
-            for target in nearby
-        )
+        nearby = [t for t in targets if t.alive and self.position.distance_to(t.position) <= self.range]
+        raw_jam = sum(t.jammer_strength * max(0.0, 1.0 - self.position.distance_to(t.position) / self.range) for t in nearby)
         self.jam_level = min(0.85, raw_jam * (1.0 - self.eccm_strength))
         capacity = max(1, int(self.tracking_channels * (1.0 - self.jam_level * 0.65)))
-        nearby.sort(key=lambda target: target.position.y, reverse=True)
+        nearby.sort(key=lambda t: t.position.y, reverse=True)
         tracks = nearby[:capacity]
         self.detected_count = len(tracks)
         return tracks
@@ -220,6 +228,7 @@ class RadarSystem:
 
 @dataclass(slots=True)
 class DefenseWeapon:
+    key: str
     name: str
     position: Vector
     projectile_speed: float
@@ -228,12 +237,15 @@ class DefenseWeapon:
     reload_time: float
     detection_range: float
     ammo: int
+    unit_cost: int
     role: WeaponRole = WeaponRole.PRECISION
     fire_control_channels: int = 1
     salvo_size: int = 1
     shot_damage: float = 9999
     cooldown: float = 0.0
     target_id: int | None = None
+    fired_count: int = 0
+    spent_cost: int = 0
 
     @property
     def ready(self) -> bool:
@@ -245,25 +257,38 @@ class DefenseWeapon:
     def find_intercept(self, target: AttackProjectile) -> InterceptSolution | None:
         if self.position.distance_to(target.position) > self.detection_range:
             return None
-        return solve_linear_intercept(
-            self.position,
-            target.position,
-            target.predicted_velocity(),
-            self.projectile_speed,
-        )
+        return solve_linear_intercept(self.position, target.position, target.predicted_velocity(), self.projectile_speed)
 
-    def fire(self, solution: InterceptSolution, radar_accuracy: float = 1.0) -> DefenseProjectile:
-        effective_accuracy = max(0.45, min(0.999, self.accuracy * radar_accuracy))
-        error_limit = (1.0 - effective_accuracy) * 55.0
+    def estimated_pk(self, target: AttackProjectile, radar_accuracy: float) -> float:
+        pk = self.accuracy * radar_accuracy
+        if target.trajectory is TrajectoryType.EVASIVE:
+            pk *= 0.78
+        if target.jammer_strength > 0:
+            pk *= max(0.65, 1.0 - target.jammer_strength * 0.35)
+        if self.role is WeaponRole.AREA:
+            pk += min(0.12, self.explosion_radius / 900.0)
+        if self.role is WeaponRole.RAPID and target.is_child:
+            pk += 0.08
+        return max(0.20, min(0.995, pk))
+
+    def fire(self, solution: InterceptSolution, target: AttackProjectile, radar_accuracy: float = 1.0) -> DefenseProjectile:
+        pk = self.estimated_pk(target, radar_accuracy)
+        error_limit = (1.0 - pk) * 55.0
         error = Vector(random.uniform(-error_limit, error_limit), random.uniform(-error_limit, error_limit))
         self.cooldown = self.reload_time
         self.ammo -= 1
+        self.fired_count += 1
+        self.spent_cost += self.unit_cost
         return DefenseProjectile(
             position=Vector(self.position),
             target_point=solution.position + error,
             speed=self.projectile_speed,
             explosion_radius=self.explosion_radius,
             damage=self.shot_damage,
+            target_uid=target.uid,
+            weapon_key=self.key,
+            unit_cost=self.unit_cost,
+            estimated_pk=pk,
         )
 
     def draw(self, surface: pygame.Surface) -> None:
