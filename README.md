@@ -2,6 +2,13 @@
 
 Game phòng thủ 2D viết bằng Python và Pygame. Radar tự động phát hiện, dự đoán điểm đánh chặn, phân bổ vũ khí và so sánh hiệu quả chi phí giữa bên tấn công và phòng thủ.
 
+## Phân loại đạn trên màn hình
+
+- **ATTACK MISSILES / WARHEADS**: tên lửa và đầu đạn tấn công, hiển thị bằng tam giác màu cam/đỏ.
+- **DEFENSE INTERCEPTORS**: đạn đánh chặn phòng thủ, hiển thị bằng hình tròn màu xanh và đường dẫn hướng.
+- HUD tách riêng số đã phóng, số đang bay và chi phí của hai bên.
+- Nhấn `D` để mở bảng chi tiết riêng cho tấn công và phòng thủ.
+
 ## Tên các loại đạn
 
 ### Tấn công
@@ -25,37 +32,35 @@ Game phòng thủ 2D viết bằng Python và Pygame. Radar tự động phát h
 
 Các mức giá chỉ phục vụ cân bằng và phân tích kinh tế trong game, không đại diện cho giá thiết bị thực tế.
 
-## Tối ưu phân bổ đạn phòng thủ
+## Khóa độc quyền bệ phòng thủ
 
-- Mỗi mục tiêu có `uid` riêng.
-- Đạn phòng thủ đang bay được ghi nhận là một cam kết đánh chặn.
-- AI không bắn thêm khi xác suất tiêu diệt tích lũy đã đạt ngưỡng yêu cầu.
-- Xác suất tích lũy được tính theo công thức `1 - tích các xác suất trượt`.
-- Đầu đạn con giá trị thấp dùng ngưỡng khoảng 82%.
-- Tên lửa thông thường dùng ngưỡng khoảng 92%.
-- Đầu đạn mẹ lớn hoặc mục tiêu gây nhiễu dùng ngưỡng khoảng 97%.
-- AI ưu tiên vũ khí rẻ nhất đáp ứng nhiệm vụ.
-- `Aegis-LR` được giữ lại cho đầu đạn mẹ, mục tiêu gây nhiễu và mục tiêu có giá trị cao.
-- `Falcon-CIWS` và `Viper-CIWS` xử lý đầu đạn con để giảm chi phí.
-- `Skyburst-F` ưu tiên cụm mục tiêu nhờ bán kính nổ lớn.
+Hệ thống hiện áp dụng quy tắc nghiêm ngặt:
+
+1. Mỗi mục tiêu có một `uid` riêng.
+2. Radar chọn đúng một bệ làm **bệ chủ quản** của mục tiêu.
+3. Khi đã có một đạn đánh chặn đang bay, không bệ nào được bắn thêm vào mục tiêu đó.
+4. Sau khi đạn đánh chặn kết thúc, bệ chủ quản được quyền thử lại nếu mục tiêu vẫn còn.
+5. Bệ khác chỉ được tiếp quản khi bệ chủ quản hết đạn, không còn nghiệm đánh chặn, hoặc không thể nạp xong trước lúc mục tiêu va chạm.
+6. Một mục tiêu luôn có tối đa một đạn phòng thủ đang bay.
+
+HUD hiển thị số `Exclusive locks` và số lần `Takeovers` để kiểm tra việc phân công.
 
 ## Thống kê và chi phí
 
 HUD hiển thị:
 
-- Tổng số đạn tấn công đã phát sinh.
-- Tổng số đạn phòng thủ đã bắn.
-- Tổng chi phí tấn công.
-- Tổng chi phí phòng thủ.
+- Tổng số đạn tấn công đã phát sinh và số đang bay.
+- Tổng số đạn phòng thủ đã bắn và số đang bay.
+- Tổng chi phí tấn công và phòng thủ.
 - Tỷ lệ chi phí tấn công/phòng thủ.
-- Tổng mục tiêu đánh chặn và số mục tiêu hiện tại.
+- Số mục tiêu đang được khóa cho từng bệ.
 
 Nhấn `D` để mở bảng chi tiết:
 
-- Số lượng từng loại tên lửa và đầu đạn.
+- Số lượng từng loại tên lửa và đầu đạn tấn công.
+- Số lượng từng loại đạn đánh chặn phòng thủ.
 - Giá đơn vị và tổng chi phí từng loại.
-- Tốc độ, độ chính xác, bán kính nổ và đạn còn lại của từng vũ khí phòng thủ.
-- Bên có tổng chi phí thấp hơn và chênh lệch chi phí.
+- Tốc độ, độ chính xác, bán kính nổ, đạn còn lại và số mục tiêu đang giữ của từng bệ.
 
 ## Cài đặt
 
