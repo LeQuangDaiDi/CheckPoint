@@ -1,0 +1,1 @@
+"""CheckPoint defense game package."""
