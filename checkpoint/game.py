@@ -271,19 +271,30 @@ class Game:
             if not candidates:
                 continue
 
-            _, target, solution, required = max(candidates, key=lambda item: item[0])
-            target_id = id(target)
-            available_need = max(1, required - reserved_shots.get(target_id, 0))
-            shot_count = min(
-                weapon.salvo_size,
-                weapon.fire_control_channels,
-                weapon.ammo,
-                available_need,
-            )
-            for _ in range(shot_count):
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            shot_budget = min(weapon.salvo_size, weapon.fire_control_channels, weapon.ammo)
+            fired = 0
+            last_target_id: int | None = None
+
+            for _, target, solution, required in candidates:
+                if fired >= shot_budget:
+                    break
+                target_id = id(target)
+                available_need = required - reserved_shots.get(target_id, 0)
+                if available_need <= 0:
+                    continue
+
                 self.defense_projectiles.append(weapon.fire(solution, radar_accuracy))
-            weapon.target_id = target_id
-            reserved_shots[target_id] = reserved_shots.get(target_id, 0) + shot_count
+                reserved_shots[target_id] = reserved_shots.get(target_id, 0) + 1
+                last_target_id = target_id
+                fired += 1
+
+                # Precision/area weapons concentrate fire; rapid weapons spread
+                # their channels across separate child warheads.
+                if weapon.role is not WeaponRole.RAPID:
+                    break
+
+            weapon.target_id = last_target_id
 
     @staticmethod
     def weapon_priority(weapon: DefenseWeapon) -> tuple[int, float]:
